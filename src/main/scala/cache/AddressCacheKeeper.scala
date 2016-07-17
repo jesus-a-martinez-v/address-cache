@@ -58,39 +58,48 @@ class AddressCacheKeeper(maxAge: Long, unit: TimeUnit, frequency: FiniteDuration
     case AddressCacheKeeper.Add(address) =>
       val originalSender = sender()
 
+      //Only add new address if it wasn't already present.
       if (!addressToStamp.contains(address)) {
         val now = Calendar.getInstance().getTimeInMillis
 
+        //Update collections.
         addressToStamp(address) = now
         stampToAddress = stampToAddress + (now -> address)
 
+        //Notify sender.
         originalSender ! OperationStatus(true)
       } else {
+        //Nothing was done. Notify sender about it.
         originalSender ! OperationStatus(false)
       }
     case AddressCacheKeeper.Remove(address) =>
       val originalSender = sender()
 
+      //Only remove already contained addresses.
       if (addressToStamp.contains(address)) {
         val timestamp = addressToStamp(address)
 
+        //Update collections.
         stampToAddress = stampToAddress - timestamp
         addressToStamp -= address
 
+        //Notify sender.
         originalSender ! OperationStatus(true)
       } else {
+        //Nothing was removed. Notify sender about it.
         originalSender ! OperationStatus(false)
       }
     case AddressCacheKeeper.Peek =>
-      sender() ! OperationResult(stampToAddress.headOption.map(_._2))
+      //Given stampToAddress is sorted, we just need its last element (if any).
+      sender() ! OperationResult(stampToAddress.lastOption.map(_._2))
     case AddressCacheKeeper.Take =>
       val originalSender = sender()
 
       if (stampToAddress.isEmpty) {
         originalSender ! OperationResult(None)
       } else {
-        val (_, address) = stampToAddress.head
-        stampToAddress = stampToAddress.tail
+        val (_, address) = stampToAddress.tail
+        stampToAddress = stampToAddress.init
         addressToStamp -= address
 
         originalSender ! OperationResult(Some(address))
@@ -99,9 +108,9 @@ class AddressCacheKeeper(maxAge: Long, unit: TimeUnit, frequency: FiniteDuration
       val now = Calendar.getInstance().getTimeInMillis
 
       //Filter out elements older than 'maxAge'
-      val (keepThis, removeThis) = stampToAddress.span {
-        //Remember than first element of the pair contains the date (in milliseconds) when de address was added.
-        now - _._1 < age.toMillis
+      val (removeThis, keepThis) = stampToAddress.span {
+        //Remember that first element of the pair contains the date (in milliseconds) when de address was added.
+        now - _._1 >= age.toMillis
       }
 
       stampToAddress = keepThis
