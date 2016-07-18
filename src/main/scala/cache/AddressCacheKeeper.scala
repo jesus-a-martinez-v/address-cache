@@ -98,7 +98,7 @@ class AddressCacheKeeper(maxAge: Long, unit: TimeUnit, frequency: FiniteDuration
       if (stampToAddress.isEmpty) {
         originalSender ! OperationResult(None)
       } else {
-        val (_, address) = stampToAddress.tail
+        val (_, address) = stampToAddress.last
         stampToAddress = stampToAddress.init
         addressToStamp -= address
 
