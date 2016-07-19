@@ -21,7 +21,7 @@ import scala.concurrent.duration._
 class ConcurrentAddressCache(maxAge: Long, unit: TimeUnit)(implicit actorSystem: ActorSystem)
   extends AddressCache(maxAge, unit) {
   private val cacheKeeper = actorSystem.actorOf(AddressCacheKeeper.props(maxAge, unit))
-  private implicit val timeout = Timeout(5 seconds)  //TODO: Export to config file.
+  private implicit val timeout = Timeout(5 seconds)
 
 
   /**

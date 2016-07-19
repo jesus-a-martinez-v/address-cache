@@ -6,7 +6,8 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
-  * Created by jxx706 on 17/07/16.
+  * Abstract class that defines the behavior of an asynchronous memcache of Internet addresses. Each element must be
+  * stored while their age is lesser than the amount specified by both `maxAge` and `unit`
   */
 abstract class AddressCache(maxAge: Long, unit: TimeUnit)(implicit executionContext: ExecutionContext) {
 

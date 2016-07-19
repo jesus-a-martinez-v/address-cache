@@ -3,20 +3,20 @@ package cache
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.duration._
-
 import akka.actor.ActorSystem
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.scalatest.concurrent.ScalaFutures
 
 
 /**
-  * Created by jxx706 on 17/07/16.
+  * Test suite for ConcurrentAddressCache implementation of AddressCache.
   */
-class ConcurrentAddressCacheSuite extends FunSuite with ScalaFutures with BeforeAndAfterAll{
+class ConcurrentAddressCacheSuite extends FunSuite with ScalaFutures with BeforeAndAfterAll {
   implicit val system = ActorSystem()
 
-  override def afterAll(): Unit = system.terminate()
+  override def afterAll(): Unit = {
+    system.terminate()
+  }
 
   test("Must add a non-existent address") {
     val address = InetAddress.getByName("127.0.0.1")
@@ -111,9 +111,4 @@ class ConcurrentAddressCacheSuite extends FunSuite with ScalaFutures with Before
       assert(result.isEmpty)
     }
   }
-
-//  test("the cache should automatically remove elements older than the maximum allowed age after some specified period") {
-//    val cache = new ConcurrentAddressCache(10, TimeUnit.SECONDS, 30 seconds)
-//  }
-
 }
