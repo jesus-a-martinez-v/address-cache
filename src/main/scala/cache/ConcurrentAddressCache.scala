@@ -1,10 +1,10 @@
 package cache
 
 import java.net.InetAddress
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{TimeUnit, TimeoutException}
 
 import akka.actor.ActorSystem
-import akka.pattern.ask
+import akka.pattern.{AskTimeoutException, ask}
 import akka.util.Timeout
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -20,8 +20,17 @@ import scala.concurrent.duration._
   */
 class ConcurrentAddressCache(maxAge: Long, unit: TimeUnit)(implicit actorSystem: ActorSystem)
   extends AddressCache(maxAge, unit) {
+
+  /**
+    * Actor that handles the internal representation of the cache. We will perform each operation by passing him a
+    * message and waiting for his reply.
+    */
   private val cacheKeeper = actorSystem.actorOf(AddressCacheKeeper.props(maxAge, unit))
-  private implicit val timeout = Timeout(5 seconds)
+
+  /**
+    * Implicit timeout for the ask operation.
+    */
+  private implicit val timeout = Timeout(5.seconds)
 
 
   /**
@@ -31,10 +40,12 @@ class ConcurrentAddressCache(maxAge: Long, unit: TimeUnit)(implicit actorSystem:
     * @param address Address to be stored.
     * @return Boolean wrapped in a future manifesting the status of the insertion.
     */
-  override def add(address: InetAddress): Future[Boolean] =
-  (cacheKeeper ? AddressCacheKeeper.Add(address))
+  override def add(address: InetAddress): Future[Boolean] = withErrorHandling {
+    (cacheKeeper ? AddressCacheKeeper.Add(address))
       .mapTo[AddressCacheKeeper.OperationStatus]
       .map(_.status)
+  }
+
 
   /**
     * Returns true if the address was successfully removed
@@ -42,10 +53,11 @@ class ConcurrentAddressCache(maxAge: Long, unit: TimeUnit)(implicit actorSystem:
     * @param address Address to be removed.
     * @return Boolean wrapped in a future manifesting the status of the removal.
     */
-  override def remove(address: InetAddress): Future[Boolean] =
-  (cacheKeeper ? AddressCacheKeeper.Remove(address))
+  override def remove(address: InetAddress): Future[Boolean] = withErrorHandling {
+    (cacheKeeper ? AddressCacheKeeper.Remove(address))
       .mapTo[AddressCacheKeeper.OperationStatus]
       .map(_.status)
+  }
 
   /**
     * Returns the most recently added element.
@@ -53,10 +65,11 @@ class ConcurrentAddressCache(maxAge: Long, unit: TimeUnit)(implicit actorSystem:
     * @return Returns an Option with the most recent added element (in a Some if exists, None otherwise)
     *         wrapped in a Future.
     */
-  override def peek(): Future[Option[InetAddress]] =
-  (cacheKeeper ? AddressCacheKeeper.Peek)
+  override def peek(): Future[Option[InetAddress]] = withErrorHandling {
+    (cacheKeeper ? AddressCacheKeeper.Peek)
       .mapTo[AddressCacheKeeper.OperationResult]
       .map(_.result)
+  }
 
   /**
     * Retrieves and removes the most recently added element
@@ -65,8 +78,18 @@ class ConcurrentAddressCache(maxAge: Long, unit: TimeUnit)(implicit actorSystem:
     * @return Returns an Option with the most recent added element (in a Some if exists, None otherwise)
     *         wrapped in a Future.
     */
-  override def take(): Future[Option[InetAddress]] =
+  override def take(): Future[Option[InetAddress]] = withErrorHandling {
     (cacheKeeper ? AddressCacheKeeper.Take)
       .mapTo[AddressCacheKeeper.OperationResult]
       .map(_.result)
+  }
+
+  //Wraps the evaluation of a future into a error handling context.
+  private def withErrorHandling[T](f: => Future[T]) =
+    try {
+      f
+    } catch {
+      case _: AskTimeoutException => throw new TimeoutException(s"Couldn't complete operation within ${timeout.duration}")
+      //Add more cases here...
+    }
 }

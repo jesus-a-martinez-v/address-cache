@@ -17,7 +17,10 @@ import scala.concurrent.duration._
   * @param unit Time unit related to `maxAge`
   * @param frequency Time frequency used to clean the cache (e.g. every 15 minutes)
   */
-class AddressCacheKeeper(maxAge: Long, unit: TimeUnit, frequency: FiniteDuration = 15 minutes) extends Actor {
+class AddressCacheKeeper(maxAge: Long, unit: TimeUnit, frequency: FiniteDuration) extends Actor {
+  require(frequency.length > 0, "frequency must be positive.")
+  require(maxAge > 0, "maxAge must be positive.")
+
   /**
     * Max allowed age of an address expressed as a finite duration object.
     */
@@ -58,36 +61,35 @@ class AddressCacheKeeper(maxAge: Long, unit: TimeUnit, frequency: FiniteDuration
     case AddressCacheKeeper.Add(address) =>
       val originalSender = sender()
 
-      //Only add new address if it wasn't already present.
-      if (!addressToStamp.contains(address)) {
-        val now = Calendar.getInstance().getTimeInMillis
+      addressToStamp.get(address) match {
+        //Only add new address if it wasn't already present.
+        case None =>
+          val now = Calendar.getInstance().getTimeInMillis
 
-        //Update collections.
-        addressToStamp(address) = now
-        stampToAddress = stampToAddress + (now -> address)
+          //Update collections.
+          addressToStamp(address) = now
+          stampToAddress = stampToAddress + (now -> address)
 
-        //Notify sender.
-        originalSender ! OperationStatus(true)
-      } else {
+          //Notify sender.
+          originalSender ! OperationStatus(true)
         //Nothing was done. Notify sender about it.
-        originalSender ! OperationStatus(false)
+        case Some(_) =>
+          originalSender ! OperationStatus(false)
       }
     case AddressCacheKeeper.Remove(address) =>
       val originalSender = sender()
 
-      //Only remove already contained addresses.
-      if (addressToStamp.contains(address)) {
-        val timestamp = addressToStamp(address)
+      addressToStamp.get(address) match {
+        case Some(timestamp) =>
+          //Update collections.
+          stampToAddress = stampToAddress - timestamp
+          addressToStamp -= address
 
-        //Update collections.
-        stampToAddress = stampToAddress - timestamp
-        addressToStamp -= address
-
-        //Notify sender.
-        originalSender ! OperationStatus(true)
-      } else {
-        //Nothing was removed. Notify sender about it.
-        originalSender ! OperationStatus(false)
+          //Notify sender.
+          originalSender ! OperationStatus(true)
+        case None =>
+          //Nothing was removed. Notify sender about it.
+          originalSender ! OperationStatus(false)
       }
     case AddressCacheKeeper.Peek =>
       //Given stampToAddress is sorted, we just need its last element (if any).
@@ -109,7 +111,7 @@ class AddressCacheKeeper(maxAge: Long, unit: TimeUnit, frequency: FiniteDuration
 
       //Filter out elements older than 'maxAge'
       val (removeThis, keepThis) = stampToAddress.span {
-        //Remember that first element of the pair contains the date (in milliseconds) when de address was added.
+        //Remember that first element of the pair contains the date (in milliseconds) when the address was added.
         now - _._1 >= age.toMillis
       }
 
@@ -138,6 +140,6 @@ object AddressCacheKeeper {
     * @param frequency Time frequency used to clean the cache (e.g. every 15 minutes)
     * @return Props instance of an AddressCacheKeeper actor.
     */
-  def props(maxAge: Long, unit: TimeUnit, frequency: FiniteDuration = 15 minutes): Props =
+  def props(maxAge: Long, unit: TimeUnit, frequency: FiniteDuration = 15.minutes): Props =
     Props(new AddressCacheKeeper(maxAge, unit, frequency))
 }

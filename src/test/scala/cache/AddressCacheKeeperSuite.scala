@@ -104,7 +104,7 @@ class AddressCacheKeeperSuite extends TestKit(ActorSystem("KeeperSpec"))
   }
 
   test("Must clean cache after an specified period of time") {
-    val impatientActor = system.actorOf(AddressCacheKeeper.props(10, TimeUnit.SECONDS, 5 seconds))
+    val impatientActor = system.actorOf(AddressCacheKeeper.props(10, TimeUnit.SECONDS, 5.seconds))
 
     val oldestAddress = InetAddress.getByName("1.2.3.4")
     val newestAddress = InetAddress.getByName("3.4.5.6")
@@ -127,6 +127,12 @@ class AddressCacheKeeperSuite extends TestKit(ActorSystem("KeeperSpec"))
     //newestAddress should still be alive, so removing it should return true.
     removeAddress(impatientActor, newestAddress)
     expectMsg(AddressCacheKeeper.OperationStatus(true))
+  }
+
+  test("Should ignore unknown messages") {
+    val actor = system.actorOf(AddressCacheKeeper.props(1, TimeUnit.DAYS))
+    actor ! "Hey! Don't ignore me!"
+    expectNoMsg()
   }
 
 }

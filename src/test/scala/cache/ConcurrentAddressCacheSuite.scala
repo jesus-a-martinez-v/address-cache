@@ -111,4 +111,10 @@ class ConcurrentAddressCacheSuite extends FunSuite with ScalaFutures with Before
       assert(result.isEmpty)
     }
   }
+
+  test("trying to create a new instance with a negative maxAge should throw IllegalArgumentException") {
+    intercept[IllegalArgumentException] {
+      new ConcurrentAddressCache(-1, TimeUnit.DAYS)
+    }
+  }
 }
