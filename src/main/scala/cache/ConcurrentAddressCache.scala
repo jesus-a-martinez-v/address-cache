@@ -72,8 +72,7 @@ class ConcurrentAddressCache(maxAge: Long, unit: TimeUnit)(implicit actorSystem:
   }
 
   /**
-    * Retrieves and removes the most recently added element
-    * from the cache and waits if necessary until an element becomes available.
+    * Retrieves and removes the most recently added element from the cache.
     *
     * @return Returns an Option with the most recent added element (in a Some if exists, None otherwise)
     *         wrapped in a Future.
